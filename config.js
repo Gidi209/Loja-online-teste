@@ -8,7 +8,7 @@
 // ============================================
 
 const LOJAFACIL = {
-  planilha_configuracoes: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRt5Wf_9UhzoU8tpd9VJlJR2LvHDtsGJy5iE9yQTguDKQKfxkKZi47hftyTRWQRglbcFMGjwqC6sJnW/pub?gid=480609827&single=true&output=csv",
-  planilha_produtos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRt5Wf_9UhzoU8tpd9VJlJR2LvHDtsGJy5iE9yQTguDKQKfxkKZi47hftyTRWQRglbcFMGjwqC6sJnW/pub?gid=952991100&single=true&output=csv",
+  planilha_configuracoes: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9EfsL_q7OjlPCxprRwgBFzfapbNvh4xpoJeEQEFiEguQChRFG3cGftmQYBaQU638mVQbVmWhR26hS/pub?gid=480609827&single=true&output=csv",
+  planilha_produtos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9EfsL_q7OjlPCxprRwgBFzfapbNvh4xpoJeEQEFiEguQChRFG3cGftmQYBaQU638mVQbVmWhR26hS/pub?gid=952991100&single=true&output=csv",
   salvar_pedidos: "https://script.google.com/macros/s/AKfycbzIL0xsHT8fd1PFO4JSepcny0eTbaVVxkw6BHGAOjmp8-7z4eSMjf8p39CBnCasj_tzlQ/exec",
 };
