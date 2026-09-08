@@ -2108,7 +2108,7 @@
       <div class="checkout-body">
         <div class="form-group"><label>Nome completo *</label><input type="text" id="custName"
             placeholder="Seu nome completo"></div>
-        <div class="form-group"><label>Telefone *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='16' oninput='maskPhone(this)'>
+        <div class="form-group"><label>Telefone *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='12' oninput='maskPhone(this)'>
         </div>
         <div class="form-group"><label>Opção de Entrega *</label>
           <div class="radio-group" id="deliveryOptions"></div>
@@ -3184,7 +3184,7 @@
       if (v.length > 3) v = v.substr(0, 3) + '-' + v.substr(3);
       input.value = v;
     }
-    function maskPhone(input) {
+ function maskPhone(input) {
   let v = input.value.replace(/\D/g, '');
 
   // Remove 244 caso o utilizador escreva o código do país
@@ -3192,12 +3192,11 @@
     v = v.substring(3);
   }
 
-  // Máximo: 12 dígitos do número angolano
-  if (v.length > 12) {
-    v = v.substring(0, 12);
-  }
+  // Máximo: 9 dígitos
+  v = v.substring(0, 9);
 
-  if (v.length > 9) {
+  // Formato: 999 999 999
+  if (v.length > 6) {
     v = v.substring(0, 3) + ' ' +
         v.substring(3, 6) + ' ' +
         v.substring(6);
