@@ -9,7 +9,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
     rel="stylesheet">
-  
+ 
   <style>
     /* ============================================
    CSS VARIABLES — Defaults (overridden by spreadsheet)
@@ -2108,7 +2108,7 @@
       <div class="checkout-body">
         <div class="form-group"><label>Nome completo *</label><input type="text" id="custName"
             placeholder="Seu nome completo"></div>
-        <div class="form-group"><label>Telefone *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='16' oninput='maskPhone(this)'>
+        <div class="form-group"><label>Telefone *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='9' oninput='maskPhone(this)'>
         </div>
         <div class="form-group"><label>Opção de Entrega *</label>
           <div class="radio-group" id="deliveryOptions"></div>
@@ -2214,6 +2214,110 @@
     let selectedVariation = null;
 
     // ============================================
+    // CACHE LOCAL — produtos/configuração
+    // ============================================
+    const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
+    const CACHE_KEYS = {
+      config: "lojafacil_config_cache_v1",
+      products: "lojafacil_products_cache_v1",
+      cart: "lojafacil_cart_v1"
+    };
+
+    function getCachedText(key) {
+      try {
+        const item = JSON.parse(localStorage.getItem(key) || "null");
+        if (!item || typeof item.text !== "string") return null;
+        return item;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveCachedText(key, text) {
+      try {
+        localStorage.setItem(key, JSON.stringify({
+          savedAt: Date.now(),
+          text: text
+        }));
+      } catch (e) {
+        console.warn("Cache cheio ou indisponível:", e);
+      }
+    }
+
+    async function fetchTextCached(url, key) {
+      const cached = getCachedText(key);
+
+      // Cache válido: nenhuma requisição à planilha.
+      if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
+        console.info("LojaFácil: usando cache", key);
+        return cached.text;
+      }
+
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        saveCachedText(key, text);
+        return text;
+      } catch (error) {
+        // Sem internet: usa o último cache disponível, mesmo expirado.
+        if (cached) {
+          console.warn("LojaFácil: offline, usando cache antigo", key);
+          return cached.text;
+        }
+        throw error;
+      }
+    }
+
+    // ============================================
+    // CACHE DO CARRINHO
+    // ============================================
+    function saveCart() {
+      try {
+        localStorage.setItem(CACHE_KEYS.cart, JSON.stringify(cart));
+      } catch (e) {
+        console.warn("Não foi possível guardar o carrinho:", e);
+      }
+    }
+
+    function loadCart() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(CACHE_KEYS.cart) || "[]");
+        cart = Array.isArray(saved) ? saved.filter(item =>
+          item && typeof item.nome === "string" && Number(item.qty) > 0
+        ) : [];
+      } catch (e) {
+        cart = [];
+      }
+    }
+
+    function clearSavedCart() {
+      try {
+        localStorage.removeItem(CACHE_KEYS.cart);
+      } catch (e) {}
+    }
+
+    // Ferramentas para verificar os dados guardados no navegador.
+    window.LojaFacilCache = {
+      carrinho: () => {
+        const data = JSON.parse(localStorage.getItem(CACHE_KEYS.cart) || "[]");
+        console.table(data);
+        return data;
+      },
+      limpar: () => {
+        localStorage.removeItem(CACHE_KEYS.config);
+        localStorage.removeItem(CACHE_KEYS.products);
+        console.log("Cache de produtos/configuração limpo.");
+      },
+      limparCarrinho: () => {
+        clearSavedCart();
+        cart = [];
+        renderCart();
+        console.log("Carrinho salvo removido.");
+      }
+    };
+
+    // ============================================
     // CSV PARSER
     // ============================================
     function parseCSV(text) {
@@ -2248,8 +2352,10 @@
     // LOAD CONFIG FROM SHEETS
     // ============================================
     async function loadConfig() {
-      const res = await fetch(LOJAFACIL.planilha_configuracoes + '&_t=' + Date.now(), { cache: 'no-store' });
-      const text = await res.text();
+      const text = await fetchTextCached(
+        LOJAFACIL.planilha_configuracoes,
+        CACHE_KEYS.config
+      );
       const rows = parseCSV(text);
 
       const cfg = {};
@@ -2353,8 +2459,10 @@
     // LOAD PRODUCTS FROM SHEETS
     // ============================================
     async function loadProducts() {
-      const res = await fetch(LOJAFACIL.planilha_produtos + '&_t=' + Date.now(), { cache: 'no-store' });
-      const text = await res.text();
+      const text = await fetchTextCached(
+        LOJAFACIL.planilha_produtos,
+        CACHE_KEYS.products
+      );
       const rows = parseCSV(text);
 
       const products = [];
@@ -2724,6 +2832,7 @@
       }
       if (existingCheck) existingCheck.qty += qty;
       else cart.push({ nome: currentProduct.nome, variacao: selectedVariation, preco: price, img: currentProduct.img1, qty, qtdMaxima: currentProduct.qtdMaxima });
+      saveCart();
       closeProductModal(); renderCart(); showCartToast(currentProduct.nome, currentProduct.img1, price * qty);
       var cartBtn = document.querySelector('.cart-btn');
       cartBtn.classList.remove('bounce');
@@ -2735,14 +2844,22 @@
       cartBadgeEl.classList.add('pop');
       trackEvent('AddToCart', { name: currentProduct.nome, value: price * qty });
     }
-    function removeFromCart(i) { cart.splice(i, 1); if (!cart.length) removeCoupon(); renderCart(); }
+    function removeFromCart(i) {
+      cart.splice(i, 1);
+      if (!cart.length) removeCoupon();
+      saveCart();
+      renderCart();
+    }
     function updateCartQty(i, d) {
       const maxQty = PRODUCTS.find(p => p.nome === cart[i].nome)?.qtdMaxima || 99;
       if (d > 0 && cart[i].qty >= maxQty) {
         showToast('Máximo de ' + maxQty + ' unidades para este produto', true);
         return;
       }
-      cart[i].qty += d; if (cart[i].qty < 1) cart.splice(i, 1); renderCart();
+      cart[i].qty += d;
+      if (cart[i].qty < 1) cart.splice(i, 1);
+      saveCart();
+      renderCart();
     }
 
     function renderCart() {
@@ -2971,6 +3088,7 @@
       window.open(waUrl, '_blank');
       closeCheckout();
       cart = [];
+      clearSavedCart();
       currentCoupon = null;
       renderCart();
       document.getElementById('orderConfirmed').classList.add('open');
@@ -3256,6 +3374,13 @@
     }
     function toggleMobileSearch() { document.getElementById("searchBar").classList.toggle("mobile-open"); }
 
+    window.addEventListener('storage', function(e) {
+      if (e.key === CACHE_KEYS.cart) {
+        loadCart();
+        renderCart();
+      }
+    });
+
     window.addEventListener('scroll', function() {
       var btn = document.getElementById('backToTop');
       if (btn) {
@@ -3277,6 +3402,7 @@
         }
         applyConfig();
         buildCategoryNav();
+        loadCart();
         renderProducts();
         renderCart();
         // Check for direct product link
