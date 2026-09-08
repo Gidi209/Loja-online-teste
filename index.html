@@ -3192,15 +3192,15 @@
     v = v.substring(3);
   }
 
-  // Máximo: 9 dígitos do número angolano
-  if (v.length > 9) {
-    v = v.substring(0, 9);
+  // Máximo: 12 dígitos do número angolano
+  if (v.length > 12) {
+    v = v.substring(0, 12);
   }
 
-  if (v.length > 6) {
+  if (v.length > 9) {
     v = v.substring(0, 3) + ' ' +
-        v.substring(3, 6) + ' ' +
-        v.substring(6);
+        v.substring(3, 9) + ' ' +
+        v.substring(9);
   } else if (v.length > 3) {
     v = v.substring(0, 3) + ' ' +
         v.substring(3);
