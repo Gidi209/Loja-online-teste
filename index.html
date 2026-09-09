@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LojaFácil - Maneco Digital</title>
+  <title>Digital Shopping Luanda — Marketplace de Angola</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
@@ -1399,25 +1399,6 @@
       margin-bottom: 4px;
     }
 
-    .pix-info {
-      background: var(--primary-light);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      margin-top: 4px;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-      color: var(--primary);
-      display: none;
-    }
-
-    .pix-info.show {
-      display: block;
-    }
-
-    .pix-info strong {
-      font-weight: 700;
-    }
-
     .btn-whatsapp {
       width: 100%;
       padding: 15px;
@@ -2108,23 +2089,19 @@
       <div class="checkout-body">
         <div class="form-group"><label>Nome completo *</label><input type="text" id="custName"
             placeholder="Seu nome completo"></div>
-        <div class="form-group"><label>Telefone *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='12' oninput='maskPhone(this)'>
+        <div class="form-group"><label>Telemóvel (Angola) *</label><input type='tel' id='custPhone' placeholder='9XX XXX XXX' maxlength='11' inputmode='numeric' oninput='maskPhone(this)'>
         </div>
         <div class="form-group"><label>Opção de Entrega *</label>
           <div class="radio-group" id="deliveryOptions"></div>
         </div>
         <div id='addressGroup' style='display:none'>
   <div class='form-group'>
-    <label>CEP *</label>
-    <input type='text' id='custCep' placeholder='000-00' maxlength='9' oninput='maskCep(this)'>
-  </div>
-  <div class='form-group'>
     <label>Endereço *</label>
-    <input type='text' id='custEndereco' placeholder='Rua e número (ex: Rua das Flores, 123)'>
+    <input type='text' id='custEndereco' placeholder='Rua, avenida e número'>
   </div>
   <div class='form-group'>
-    <label>Complemento</label>
-    <input type='text' id='custComplemento' placeholder='Apto, bloco, referência (opcional)'>
+    <label>Ponto de referência</label>
+    <input type='text' id='custComplemento' placeholder='Ex.: perto de uma escola, mercado ou avenida'>
   </div>
   <div style='display:grid;grid-template-columns:1fr 1fr;gap:12px'>
     <div class='form-group'>
@@ -2132,15 +2109,18 @@
       <input type='text' id='custBairro' placeholder='Bairro'>
     </div>
     <div class='form-group'>
-      <label>Cidade/UF *</label>
-      <input type='text' id='custCidade' placeholder='São Paulo/SP'>
+      <label>Município *</label>
+      <input type='text' id='custCidade' placeholder='Ex.: Luanda, Viana, Cacuaco'>
     </div>
+  </div>
+  <div class='form-group'>
+    <label>Província *</label>
+    <input type='text' id='custProvincia' placeholder='Ex.: Luanda'>
   </div>
 </div>
         <div class="form-group"><label>Forma de Pagamento *</label><select id="paymentMethod">
             <option value="">Selecione...</option>
           </select></div>
-        <div class="pix-info" id="pixInfo"></div>
         <div class="form-group"><label>Observações</label><textarea id="custObs"
             placeholder="Alguma observação sobre o pedido?"></textarea></div>
         <div class="checkout-summary" id="checkoutSummary"></div>
@@ -2219,8 +2199,8 @@
     const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
     const CACHE_KEYS = {
       config: "lojafacil_config_cache_v1",
-      products: "lojafacil_products_cache_v1",
-      cart: "lojafacil_cart_v1"
+      products: "lojafacil_products_cache_v3_ao",
+      cart: "lojafacil_cart_v2_ao"
     };
 
     function getCachedText(key) {
@@ -2403,18 +2383,17 @@
         else if (field === 'MENSAGEM MANUTENCAO' || field === 'MENSAGEM MANUTENÇÃO' || field === 'MENSAGEM MANUTENÇAO') cfg.msgManutencao = val;
         else if (field === 'RETIRADA NO LOCAL') cfg.retiradaLocal = val.toUpperCase() === 'SIM';
         else if (field === 'ENDEREÇO RETIRADA' || field === 'ENDERECO RETIRADA') cfg.enderecoRetirada = val;
-        else if (field === 'CNPJ') cfg.cnpj = val;
+        else if (field === 'NIF') cfg.nif = val;
         else if (field === 'ENDERECO' || field === 'ENDEREÇO' || field === 'ENDERECO DA LOJA' || field === 'ENDEREÇO DA LOJA') cfg.endereco = val;
         else if (field === 'EMAIL' || field === 'EMAIL DE CONTATO') cfg.email = val;
         else if (field === 'DELIVERY') cfg.delivery = val.toUpperCase() === 'SIM';
         else if (field === 'TAXA DELIVERY') cfg.taxaDelivery = parsePrecoBR(val);
         else if (field === 'ENTREGA PADRÃO' || field === 'ENTREGA PADRAO') cfg.entregaPadrao = val.toUpperCase() === 'SIM';
         else if (field === 'TAXA ENTREGA PADRÃO' || field === 'TAXA ENTREGA PADRAO') cfg.taxaEntregaPadrao = parsePrecoBR(val);
-        else if (field === 'PIX') cfg.pix = val.toUpperCase() === 'SIM';
-        else if (field === 'CHAVE PIX') cfg.chavePix = val;
-        else if (field === 'CARTÃO (NA ENTREGA)' || field === 'CARTAO (NA ENTREGA)' || field === 'CARTÃO' || field === 'CARTAO') { cfg.cartao = val.toUpperCase() === 'SIM'; cfg.cartaoNome = (row[0] || '').replace(/[⚙️📋🎨🚚🏷️💳💡]/g, '').trim(); }
-        else if (field === 'DINHEIRO') cfg.dinheiro = val.toUpperCase() === 'SIM';
-        else if (field === 'TRANSFERÊNCIA' || field === 'TRANSFERENCIA') cfg.transferencia = val.toUpperCase() === 'SIM';
+        else if (field === 'MULTICAIXA EXPRESS' || field === 'MULTICAIXA') cfg.multicaixaExpress = val.toUpperCase() === 'SIM';
+        else if (field === 'TPA' || field === 'CARTÃO (NA ENTREGA)' || field === 'CARTAO (NA ENTREGA)' || field === 'CARTÃO' || field === 'CARTAO') { cfg.tpa = val.toUpperCase() === 'SIM'; cfg.tpaNome = 'TPA (Cartão)'; }
+        else if (field === 'DINHEIRO' || field === 'DINHEIRO NA ENTREGA') cfg.dinheiro = val.toUpperCase() === 'SIM';
+        else if (field === 'TRANSFERÊNCIA' || field === 'TRANSFERENCIA' || field === 'TRANSFERÊNCIA BANCÁRIA' || field === 'TRANSFERENCIA BANCARIA') cfg.transferencia = val.toUpperCase() === 'SIM';
         else if (field === 'MENSAGEM TOPO' || field === 'BARRA TOPO') cfg.mensagemTopo = val;
         else if (field === 'COR BARRA TOPO' || field === 'COR MENSAGEM TOPO') cfg.corBarraTopo = val;
         else if (field.match(/^FAIXA (DE )?ENTREGA (\d)$/)) {
@@ -2432,7 +2411,7 @@
           if (!cfg.faixasEntrega[idx]) cfg.faixasEntrega[idx] = {};
           cfg.faixasEntrega[idx].taxa = parsePrecoBR(val);
         }
-        // Coupons (row format: Código | PROMO10 | FRETE | BEMVINDO)
+        // Cupons (códigos promocionais)
         else if (field === 'CÓDIGO' || field === 'CODIGO') {
           inCoupons = true;
           const codes = [val, val2, val3].filter(Boolean);
@@ -2458,6 +2437,15 @@
     // ============================================
     // LOAD PRODUCTS FROM SHEETS
     // ============================================
+    function syncCartSellers() {
+      if (!Array.isArray(cart) || !Array.isArray(PRODUCTS)) return;
+      cart.forEach(function(item) {
+        const product = PRODUCTS.find(function(p) { return p.nome === item.nome; });
+        if (product) item.vendedor = (product.vendedor || '').trim();
+      });
+      saveCart();
+    }
+
     async function loadProducts() {
       const text = await fetchTextCached(
         LOJAFACIL.planilha_produtos,
@@ -2494,6 +2482,7 @@
         });
       }
       PRODUCTS = products.filter(p => p.nome);
+      syncCartSellers();
     }
 
     // ============================================
@@ -2608,7 +2597,7 @@
 
       var footerInfo = '';
       if (CONFIG.endereco) footerInfo += '<div style="font-size:0.8rem;color:var(--gray-400);margin-bottom:4px">' + CONFIG.endereco + '</div>';
-      if (CONFIG.cnpj) footerInfo += '<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px">CNPJ: ' + CONFIG.cnpj + '</div>';
+      if (CONFIG.nif) footerInfo += '<div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px">NIF: ' + CONFIG.nif + '</div>';
       if (CONFIG.email) footerInfo += '<div style="font-size:0.8rem;margin-bottom:4px"><a href="mailto:' + CONFIG.email + '" style="color:var(--gray-400);text-decoration:underline">' + CONFIG.email + '</a></div>';
       if (footerInfo) {
         var infoDiv = document.createElement('div');
@@ -2649,25 +2638,17 @@
       // Payment methods for checkout
       const paySelect = document.getElementById('paymentMethod');
       paySelect.innerHTML = '<option value="">Selecione...</option>';
-      if (CONFIG.pix) paySelect.innerHTML += '<option value="Pix">Pix</option>';
-      if (CONFIG.cartao) paySelect.innerHTML += '<option value="' + (CONFIG.cartaoNome || 'Cartão') + '">' + (CONFIG.cartaoNome || 'Cartão') + '</option>';
-      if (CONFIG.dinheiro) paySelect.innerHTML += '<option value="Dinheiro">Dinheiro</option>';
-      if (CONFIG.transferencia) paySelect.innerHTML += '<option value="Transferência">Transferência</option>';
+      if (CONFIG.multicaixaExpress) paySelect.innerHTML += '<option value="Multicaixa Express">Multicaixa Express</option>';
+      if (CONFIG.tpa) paySelect.innerHTML += '<option value="TPA (Cartão)">TPA (Cartão)</option>';
+      if (CONFIG.dinheiro) paySelect.innerHTML += '<option value="Dinheiro na entrega">Dinheiro na entrega</option>';
+      if (CONFIG.transferencia) paySelect.innerHTML += '<option value="Transferência bancária">Transferência bancária</option>';
 
       // Clear field errors on input
-      ['custName','custPhone','custEndereco','custBairro','custCidade','custCep','custComplemento'].forEach(function(id) {
+      ['custName','custPhone','custEndereco','custBairro','custCidade','custProvincia','custComplemento'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', function() { this.classList.remove('field-error'); });
       });
       paySelect.addEventListener('change', function() { this.classList.remove('field-error'); });
-
-      // Pix info
-      if (CONFIG.chavePix) {
-        document.getElementById('pixInfo').innerHTML = `Chave Pix: <strong>${CONFIG.chavePix}</strong>`;
-      }
-      paySelect.addEventListener('change', function () {
-        document.getElementById('pixInfo').classList.toggle('show', this.value === 'Pix' && CONFIG.pix);
-      });
 
       // Show UI
       installPixels();
@@ -2831,8 +2812,20 @@
         showToast('Máximo de ' + max + ' unidades para este produto', true);
         return;
       }
-      if (existingCheck) existingCheck.qty += qty;
-      else cart.push({ nome: currentProduct.nome, variacao: selectedVariation, preco: price, img: currentProduct.img1, qty, qtdMaxima: currentProduct.qtdMaxima });
+      if (existingCheck) {
+        existingCheck.qty += qty;
+        existingCheck.vendedor = (currentProduct.vendedor || '').trim();
+      } else {
+        cart.push({
+          nome: currentProduct.nome,
+          variacao: selectedVariation,
+          preco: price,
+          img: currentProduct.img1,
+          qty,
+          qtdMaxima: currentProduct.qtdMaxima,
+          vendedor: (currentProduct.vendedor || '').trim()
+        });
+      }
       saveCart();
       closeProductModal(); renderCart(); showCartToast(currentProduct.nome, currentProduct.img1, price * qty);
       var cartBtn = document.querySelector('.cart-btn');
@@ -2959,8 +2952,8 @@
     function buildDeliveryOptions() {
       const c = document.getElementById("deliveryOptions"); let html = "";
       if (CONFIG.retiradaLocal) html += dopt("retirada", "Retirada no Local", CONFIG.enderecoRetirada || "", "Grátis");
-      if (CONFIG.delivery) html += dopt("delivery", "Delivery", "", CONFIG.taxaDelivery > 0 ? `Kz ${fp(CONFIG.taxaDelivery)}` : "Grátis");
-      if (CONFIG.entregaPadrao) html += dopt("padrao", "Entrega Padrão", "", CONFIG.taxaEntregaPadrao > 0 ? `Kz ${fp(CONFIG.taxaEntregaPadrao)}` : "Grátis");
+      if (CONFIG.delivery) html += dopt("delivery", "Entrega ao domicílio", "", CONFIG.taxaDelivery > 0 ? `Kz ${fp(CONFIG.taxaDelivery)}` : "Grátis");
+      if (CONFIG.entregaPadrao) html += dopt("padrao", "Entrega padrão", "", CONFIG.taxaEntregaPadrao > 0 ? `Kz ${fp(CONFIG.taxaEntregaPadrao)}` : "Grátis");
       if (CONFIG.faixasEntrega && CONFIG.faixasEntrega.length > 0) {
         CONFIG.faixasEntrega.forEach((faixa, i) => {
           html += dopt('faixa_' + i, faixa.nome, '', faixa.taxa > 0 ? 'Kz ' + fp(faixa.taxa) : 'Grátis');
@@ -2976,7 +2969,7 @@
       document.getElementById("addressGroup").style.display = val !== "retirada" ? "block" : "none"; buildCheckoutSummary();
     }
     function getDeliveryFee() { const s = document.querySelector('input[name="delivery"]:checked'); if (!s) return 0; if (s.value === "delivery") return CONFIG.taxaDelivery || 0; if (s.value === "padrao") return CONFIG.taxaEntregaPadrao || 0; if (s.value.startsWith('faixa_')) { const idx = parseInt(s.value.replace('faixa_', '')); if (CONFIG.faixasEntrega && CONFIG.faixasEntrega[idx]) return CONFIG.faixasEntrega[idx].taxa; } return 0; }
-    function getDeliveryLabel() { const s = document.querySelector('input[name="delivery"]:checked'); if (!s) return ""; if (s.value.startsWith('faixa_')) { const idx = parseInt(s.value.replace('faixa_', '')); if (CONFIG.faixasEntrega && CONFIG.faixasEntrega[idx]) return CONFIG.faixasEntrega[idx].nome; } return { retirada: "Retirada no Local", delivery: "Delivery", padrao: "Entrega Padrão" }[s.value] || ""; }
+    function getDeliveryLabel() { const s = document.querySelector('input[name="delivery"]:checked'); if (!s) return ""; if (s.value.startsWith('faixa_')) { const idx = parseInt(s.value.replace('faixa_', '')); if (CONFIG.faixasEntrega && CONFIG.faixasEntrega[idx]) return CONFIG.faixasEntrega[idx].nome; } return { retirada: "Retirada no Local", delivery: "Entrega ao domicílio", padrao: "Entrega padrão" }[s.value] || ""; }
 
     function buildCheckoutSummary() {
       const sub = cart.reduce((s, i) => s + i.preco * i.qty, 0);
@@ -3001,7 +2994,7 @@
       const phone = document.getElementById("custPhone").value.trim();
       const del = document.querySelector('input[name="delivery"]:checked');
       const pay = document.getElementById("paymentMethod").value;
-      var cep = document.getElementById('custCep') ? document.getElementById('custCep').value.trim() : '';
+      var provincia = document.getElementById('custProvincia') ? document.getElementById('custProvincia').value.trim() : '';
       var endereco = document.getElementById('custEndereco') ? document.getElementById('custEndereco').value.trim() : '';
       var complemento = document.getElementById('custComplemento') ? document.getElementById('custComplemento').value.trim() : '';
       var bairro = document.getElementById('custBairro') ? document.getElementById('custBairro').value.trim() : '';
@@ -3016,7 +3009,7 @@
       function markError(el) { el.classList.add('field-error'); if (!firstError) firstError = el; hasError = true; }
 
       if (!name) markError(document.getElementById('custName'));
-      if (!phone) markError(document.getElementById('custPhone'));
+      if (!phone || phone.replace(/\D/g, '').replace(/^244/, '').length !== 9) markError(document.getElementById('custPhone'));
       if (!del) { var dg = document.querySelector('.form-group:has(#deliveryOptions)') || document.getElementById('deliveryOptions').closest('.form-group'); if (dg) { dg.classList.add('delivery-error'); if (!firstError) firstError = dg; } hasError = true; }
       if (!pay) markError(document.getElementById('paymentMethod'));
 
@@ -3026,10 +3019,11 @@
         return;
       }
 
-      if (del.value !== 'retirada' && (!endereco || !bairro || !cidade)) {
+      if (del.value !== 'retirada' && (!endereco || !bairro || !cidade || !provincia)) {
         if (!endereco) markError(document.getElementById('custEndereco'));
         if (!bairro) markError(document.getElementById('custBairro'));
         if (!cidade) markError(document.getElementById('custCidade'));
+        if (!provincia) markError(document.getElementById('custProvincia'));
         showToast('Preencha os campos de endereço', true);
         if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
@@ -3042,9 +3036,8 @@
 
       let msg = (CONFIG.msgPedido || "Olá! Segue meu pedido:") + "\n━━━━━━━━━━━━━━━\n";
       cart.forEach(function(i) {
-        msg += i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' — ' + (i.preco > 0 ? 'Kz ' + fp(i.preco * i.qty) : 'Consultar preço');
-        if (i.vendedor) msg += ' | Vendedor: ' + i.vendedor;
-        msg += '\n';
+        msg += i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' — ' + (i.preco > 0 ? 'Kz ' + fp(i.preco * i.qty) : 'Consultar preço') + '\n';
+        msg += 'Vendedor: ' + (i.vendedor || 'Não informado') + '\n';
       });
       msg += "━━━━━━━━━━━━━━━\n";
       msg += `Subtotal: Kz ${fp(sub)}\n`;
@@ -3056,13 +3049,12 @@
       } else {
         msg += '*TOTAL: Kz ' + fp(total) + '*\n━━━━━━━━━━━━━━━\n';
       }
-      msg += `Nome: ${name}\nTel: ${phone}\n`;
+      msg += `Nome: ${name}\nTelemóvel: ${normalizeAOPhone(phone)}\nPaís: Angola\n`;
       if (del.value !== 'retirada') {
         msg += 'Endereço:\n';
-        if (cep) msg += 'CEP: ' + cep + '\n';
         msg += endereco + '\n';
         if (complemento) msg += complemento + '\n';
-        msg += bairro + ' - ' + cidade + '\n';
+        msg += bairro + ' - ' + cidade + ' - ' + provincia + '\n';
       }
       msg += `Entrega: ${getDeliveryLabel()}\nPagamento: ${pay}\n`;
       if (obs) msg += `Obs: ${obs}\n`;
@@ -3072,8 +3064,9 @@
       var dadosPedido = {
         dataHora: new Date().toLocaleString('pt-AO'),
         nome: name,
-        telefone: phone,
-        cep: typeof cep !== 'undefined' ? cep : '',
+        telefone: normalizeAOPhone(phone),
+        provincia: provincia,
+        pais: 'Angola',
         endereco: typeof endereco !== 'undefined' ? endereco : '',
         bairro: typeof bairro !== 'undefined' ? bairro : '',
         cidade: typeof cidade !== 'undefined' ? cidade : '',
@@ -3083,13 +3076,15 @@
         itens: itensList,
         subtotal: 'Kz ' + fp(sub),
         desconto: disc > 0 ? 'Kz ' + fp(disc) : '',
-        frete: fee > 0 ? 'Kz ' + fp(fee) : 'Grátis',
+        taxaEntrega: fee > 0 ? 'Kz ' + fp(fee) : 'Grátis',
         total: 'Kz ' + fp(total),
         cupom: currentCoupon ? currentCoupon.codigo : '',
         observacoes: obs
       };
       salvarPedido(dadosPedido);
-      var waUrl = 'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
+      var waNumber = String(CONFIG.whatsapp || '').replace(/\D/g, '');
+      if (waNumber && !waNumber.startsWith('244')) waNumber = '244' + waNumber;
+      var waUrl = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
       closeCheckout();
       cart = [];
@@ -3183,35 +3178,21 @@
       document.body.style.overflow = '';
       document.body.classList.remove('modal-open');
     }
-    function maskCep(input) {
-      var v = input.value.replace(/\D/g, '');
-      if (v.length > 5) v = v.substr(0, 5);
-      if (v.length > 3) v = v.substr(0, 3) + '-' + v.substr(3);
+    function maskPhone(input) {
+      let v = input.value.replace(/\D/g, '');
+      if (v.startsWith('244')) v = v.substring(3);
+      v = v.substring(0, 9);
+      if (v.length > 6) v = v.substring(0, 3) + ' ' + v.substring(3, 6) + ' ' + v.substring(6);
+      else if (v.length > 3) v = v.substring(0, 3) + ' ' + v.substring(3);
       input.value = v;
     }
- function maskPhone(input) {
-  let v = input.value.replace(/\D/g, '');
 
-  // Remove 244 caso o utilizador escreva o código do país
-  if (v.startsWith('244')) {
-    v = v.substring(3);
-  }
+    function normalizeAOPhone(value) {
+      let digits = String(value || '').replace(/\D/g, '');
+      if (digits.startsWith('244')) digits = digits.substring(3);
+      return digits.length === 9 ? '+244 ' + digits.substring(0,3) + ' ' + digits.substring(3,6) + ' ' + digits.substring(6) : value;
+    }
 
-  // Máximo: 9 dígitos
-  v = v.substring(0, 9);
-
-  // Formato: 999 999 999
-  if (v.length > 6) {
-    v = v.substring(0, 3) + ' ' +
-        v.substring(3, 6) + ' ' +
-        v.substring(6);
-  } else if (v.length > 3) {
-    v = v.substring(0, 3) + ' ' +
-        v.substring(3);
-  }
-
-  input.value = v;
-}
     function handleImgError(img) {
       var parent = img.parentElement;
       var div = document.createElement('div');
@@ -3294,21 +3275,21 @@
     function trackEvent(eventName, data) {
       // Facebook
       if (CONFIG.pixelFacebook && typeof fbq !== 'undefined') {
-        if (eventName === 'ViewContent') fbq('track', 'ViewContent', { content_name: data.name, value: data.value, currency: 'BRL' });
-        else if (eventName === 'AddToCart') fbq('track', 'AddToCart', { content_name: data.name, value: data.value, currency: 'BRL' });
-        else if (eventName === 'InitiateCheckout') fbq('track', 'InitiateCheckout', { value: data.value, currency: 'BRL' });
-        else if (eventName === 'Purchase') fbq('track', 'Purchase', { value: data.value, currency: 'BRL' });
+        if (eventName === 'ViewContent') fbq('track', 'ViewContent', { content_name: data.name, value: data.value, currency: 'AOA' });
+        else if (eventName === 'AddToCart') fbq('track', 'AddToCart', { content_name: data.name, value: data.value, currency: 'AOA' });
+        else if (eventName === 'InitiateCheckout') fbq('track', 'InitiateCheckout', { value: data.value, currency: 'AOA' });
+        else if (eventName === 'Purchase') fbq('track', 'Purchase', { value: data.value, currency: 'AOA' });
       }
       // Google Analytics
       if (CONFIG.googleAnalytics && typeof gtag !== 'undefined') {
-        if (eventName === 'ViewContent') gtag('event', 'view_item', { currency: 'BRL', value: data.value });
-        else if (eventName === 'AddToCart') gtag('event', 'add_to_cart', { currency: 'BRL', value: data.value });
-        else if (eventName === 'InitiateCheckout') gtag('event', 'begin_checkout', { currency: 'BRL', value: data.value });
-        else if (eventName === 'Purchase') gtag('event', 'purchase', { currency: 'BRL', value: data.value, transaction_id: Date.now().toString() });
+        if (eventName === 'ViewContent') gtag('event', 'view_item', { currency: 'AOA', value: data.value });
+        else if (eventName === 'AddToCart') gtag('event', 'add_to_cart', { currency: 'AOA', value: data.value });
+        else if (eventName === 'InitiateCheckout') gtag('event', 'begin_checkout', { currency: 'AOA', value: data.value });
+        else if (eventName === 'Purchase') gtag('event', 'purchase', { currency: 'AOA', value: data.value, transaction_id: Date.now().toString() });
       }
       // Google Ads
       if (CONFIG.googleAds && typeof gtag !== 'undefined') {
-        if (eventName === 'Purchase') gtag('event', 'conversion', { send_to: CONFIG.googleAds, value: data.value, currency: 'BRL' });
+        if (eventName === 'Purchase') gtag('event', 'conversion', { send_to: CONFIG.googleAds, value: data.value, currency: 'AOA' });
       }
     }
 
@@ -3340,7 +3321,7 @@
       if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
       return url;
     }
-    function fp(v) { return v.toFixed(2).replace(".", ","); }
+    function fp(v) { return Number(v || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true }); }
     function parsePrecoBR(val) {
       var s = (val || '').trim();
       if (!s) return 0;
