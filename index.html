@@ -2132,8 +2132,8 @@
       <input type='text' id='custBairro' placeholder='Bairro'>
     </div>
     <div class='form-group'>
-      <label>Municipio *</label>
-      <input type='text' id='custCidade' placeholder='Viana'>
+      <label>Cidade/UF *</label>
+      <input type='text' id='custCidade' placeholder='São Paulo/SP'>
     </div>
   </div>
 </div>
@@ -2486,6 +2486,7 @@
           qtdMaxima: parseInt(row[12]) || 99,
           ordem: parseInt(row[13]) || 9999,
           destaque: row.length > 14 && (row[14] || '').trim().toUpperCase() === 'SIM',
+          vendedor: (row[15] || '').trim(),
           img1: fixImg((row[8] || '').trim()),
           img2: fixImg((row[9] || '').trim()),
           img3: fixImg((row[10] || '').trim()),
@@ -3040,7 +3041,11 @@
       const fee = getDeliveryFee(); const total = sub - disc + fee;
 
       let msg = (CONFIG.msgPedido || "Olá! Segue meu pedido:") + "\n━━━━━━━━━━━━━━━\n";
-      cart.forEach(function(i) { msg += i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' — ' + (i.preco > 0 ? 'Kz ' + fp(i.preco * i.qty) : 'Consultar preço') + '\n'; });
+      cart.forEach(function(i) {
+        msg += i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' — ' + (i.preco > 0 ? 'Kz ' + fp(i.preco * i.qty) : 'Consultar preço');
+        if (i.vendedor) msg += ' | Vendedor: ' + i.vendedor;
+        msg += '\n';
+      });
       msg += "━━━━━━━━━━━━━━━\n";
       msg += `Subtotal: Kz ${fp(sub)}\n`;
       if (disc > 0) msg += `Cupom ${currentCoupon.codigo}: -Kz ${fp(disc)}\n`;
