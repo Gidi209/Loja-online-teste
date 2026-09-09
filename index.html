@@ -2200,7 +2200,8 @@
     const CACHE_KEYS = {
       config: "lojafacil_config_cache_v2_ao",
       products: "lojafacil_products_cache_v4_ao",
-      cart: "lojafacil_cart_v3_ao",
+      cart: "lojafacil_cart_v4_ao",
+      cartLegacy: "lojafacil_cart_v3_ao",
       abandoned: "lojafacil_abandoned_carts_v1_ao",
       pendingOrders: "lojafacil_pending_orders_v1_ao"
     };
@@ -2329,10 +2330,13 @@
     }
 
     function loadCart() {
-      cart = normalizeCartItems(safeReadJSON(CACHE_KEYS.cart, []));
-      // Garante que uma versão antiga/inválida não fique presa no armazenamento.
+      // Primeiro tenta a versão atual; se não existir, recupera a versão anterior.
+      let saved = safeReadJSON(CACHE_KEYS.cart, null);
+      if (!Array.isArray(saved)) saved = safeReadJSON(CACHE_KEYS.cartLegacy, []);
+      cart = normalizeCartItems(saved);
       safeWriteJSON(CACHE_KEYS.cart, cart);
       if (cart.length) queueAbandonedCartSnapshot(true);
+      return cart;
     }
 
     function clearSavedCart() {
@@ -3622,6 +3626,10 @@
     // INIT
     // ============================================
     async function init() {
+      // Carrega o carrinho ANTES da rede. Assim, mesmo que a planilha falhe,
+      // um recarregamento nunca apaga o carrinho que já estava no navegador.
+      loadCart();
+      renderCart();
       try {
         await Promise.all([loadConfig(), loadProducts()]);
         if (CONFIG.lojaAtiva === false) {
@@ -3631,6 +3639,8 @@
         }
         applyConfig();
         buildCategoryNav();
+        // O carrinho já foi restaurado antes da ligação à planilha.
+        // Recarregamos apenas para normalizar dados antigos.
         loadCart();
         renderProducts();
         renderCart();
