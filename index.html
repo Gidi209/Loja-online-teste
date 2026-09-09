@@ -2194,13 +2194,21 @@
     let selectedVariation = null;
 
     // ============================================
-    // CACHE LOCAL — produtos/configuração
+    // CACHE LOCAL — produtos/configuração + carrinho
     // ============================================
     const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
     const CACHE_KEYS = {
-      config: "lojafacil_config_cache_v1",
-      products: "lojafacil_products_cache_v3_ao",
-      cart: "lojafacil_cart_v2_ao"
+      config: "lojafacil_config_cache_v2_ao",
+      products: "lojafacil_products_cache_v4_ao",
+      cart: "lojafacil_cart_v3_ao",
+      abandoned: "lojafacil_abandoned_carts_v1_ao",
+      pendingOrders: "lojafacil_pending_orders_v1_ao"
+    };
+
+    const NETWORK = {
+      timeoutMs: 12000,
+      retries: 3,
+      retryBaseMs: 700
     };
 
     function getCachedText(key) {
@@ -2215,34 +2223,61 @@
 
     function saveCachedText(key, text) {
       try {
-        localStorage.setItem(key, JSON.stringify({
-          savedAt: Date.now(),
-          text: text
-        }));
+        localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), text: text }));
       } catch (e) {
         console.warn("Cache cheio ou indisponível:", e);
       }
     }
 
+    function sleep(ms) {
+      return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }
+
+    async function fetchWithTimeout(url, options, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(function() { controller.abort(); }, timeoutMs || NETWORK.timeoutMs);
+      try {
+        const opts = Object.assign({}, options || {}, { signal: controller.signal });
+        return await fetch(url, opts);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function fetchWithRetry(url, options, retries) {
+      let lastError = null;
+      const maxRetries = Number.isFinite(retries) ? retries : NETWORK.retries;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetchWithTimeout(url, options, NETWORK.timeoutMs);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res;
+        } catch (error) {
+          lastError = error;
+          if (attempt < maxRetries) await sleep(NETWORK.retryBaseMs * Math.pow(2, attempt));
+        }
+      }
+      throw lastError || new Error("Falha de rede");
+    }
+
     async function fetchTextCached(url, key) {
       const cached = getCachedText(key);
-
-      // Cache válido: nenhuma requisição à planilha.
       if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
         console.info("LojaFácil: usando cache", key);
         return cached.text;
       }
 
+      if (!url) throw new Error("URL da planilha não configurada");
+
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        const res = await fetchWithRetry(url, { cache: "no-store", headers: { "Accept": "text/csv,text/plain,*/*" } });
         const text = await res.text();
+        if (!text || !text.trim()) throw new Error("A planilha respondeu vazia");
         saveCachedText(key, text);
         return text;
       } catch (error) {
-        // Sem internet: usa o último cache disponível, mesmo expirado.
-        if (cached) {
-          console.warn("LojaFácil: offline, usando cache antigo", key);
+        if (cached && cached.text) {
+          console.warn("LojaFácil: falha de rede, usando cache antigo", key, error);
           return cached.text;
         }
         throw error;
@@ -2250,46 +2285,187 @@
     }
 
     // ============================================
-    // CACHE DO CARRINHO
+    // PERSISTÊNCIA DO CARRINHO + CARRINHOS ABANDONADOS
     // ============================================
-    function saveCart() {
+    function safeReadJSON(key, fallback) {
       try {
-        localStorage.setItem(CACHE_KEYS.cart, JSON.stringify(cart));
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        const value = JSON.parse(raw);
+        return value == null ? fallback : value;
       } catch (e) {
-        console.warn("Não foi possível guardar o carrinho:", e);
+        return fallback;
       }
+    }
+
+    function safeWriteJSON(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (e) {
+        console.warn("Não foi possível guardar dados locais:", key, e);
+        return false;
+      }
+    }
+
+    function normalizeCartItems(items) {
+      if (!Array.isArray(items)) return [];
+      return items.filter(function(item) {
+        return item && typeof item.nome === "string" && item.nome.trim() && Number(item.qty) > 0;
+      }).map(function(item) {
+        return Object.assign({}, item, { qty: Math.max(1, Number(item.qty) || 1) });
+      });
+    }
+
+    function getAbandonedCarts() {
+      const value = safeReadJSON(CACHE_KEYS.abandoned, []);
+      return Array.isArray(value) ? value : [];
+    }
+
+    function saveCart() {
+      cart = normalizeCartItems(cart);
+      safeWriteJSON(CACHE_KEYS.cart, cart);
+      queueAbandonedCartSnapshot();
     }
 
     function loadCart() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(CACHE_KEYS.cart) || "[]");
-        cart = Array.isArray(saved) ? saved.filter(item =>
-          item && typeof item.nome === "string" && Number(item.qty) > 0
-        ) : [];
-      } catch (e) {
-        cart = [];
-      }
+      cart = normalizeCartItems(safeReadJSON(CACHE_KEYS.cart, []));
+      // Garante que uma versão antiga/inválida não fique presa no armazenamento.
+      safeWriteJSON(CACHE_KEYS.cart, cart);
+      if (cart.length) queueAbandonedCartSnapshot(true);
     }
 
     function clearSavedCart() {
+      try { localStorage.removeItem(CACHE_KEYS.cart); } catch (e) {}
+    }
+
+    function cartSnapshot() {
+      return {
+        id: "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        dataHora: new Date().toISOString(),
+        itens: normalizeCartItems(cart).map(function(item) {
+          return {
+            nome: item.nome,
+            variacao: item.variacao || '',
+            preco: Number(item.preco) || 0,
+            qty: Number(item.qty) || 0,
+            vendedor: item.vendedor || ''
+          };
+        }),
+        totalItens: cart.reduce(function(total, item) { return total + (Number(item.qty) || 0); }, 0),
+        origem: window.location.href,
+        status: 'abandonado'
+      };
+    }
+
+    function queueAbandonedCartSnapshot(fromLoad) {
+      if (!Array.isArray(cart) || !cart.length) return;
+      clearTimeout(window._abandonedCartTimer);
+      window._abandonedCartTimer = setTimeout(function() {
+        const list = getAbandonedCarts();
+        const fingerprint = JSON.stringify(cart.map(function(i) {
+          return [i.nome, i.variacao || '', i.qty, Number(i.preco) || 0];
+        }));
+        const last = list[list.length - 1];
+        if (last && last.fingerprint === fingerprint && Date.now() - Number(last.updatedAt || 0) < 60000) {
+          return;
+        }
+        const snapshot = cartSnapshot();
+        snapshot.fingerprint = fingerprint;
+        snapshot.updatedAt = Date.now();
+        // Mantém um histórico local limitado para não encher o armazenamento.
+        const next = list.concat(snapshot).slice(-100);
+        safeWriteJSON(CACHE_KEYS.abandoned, next);
+        if (!snapshot.synced) queuePendingRecord('carrinho_abandonado', snapshot);
+        syncPendingRecords();
+      }, fromLoad ? 1500 : 900);
+    }
+
+    function queuePendingRecord(type, data) {
+      const list = safeReadJSON(CACHE_KEYS.pendingOrders, []);
+      const next = Array.isArray(list) ? list : [];
+      next.push({ type: type, data: data, createdAt: Date.now(), attempts: 0 });
+      safeWriteJSON(CACHE_KEYS.pendingOrders, next.slice(-100));
+    }
+
+    function getSaveEndpoint() {
+      return (window.LOJAFACIL && (LOJAFACIL.salvar_pedidos || LOJAFACIL.salvar_carrinhos)) || '';
+    }
+
+    async function postRecord(type, data) {
+      const endpoint = getSaveEndpoint();
+      if (!endpoint) return false;
+      const payload = Object.assign({ tipoRegistro: type }, data || {});
+      const url = endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + 'data=' + encodeURIComponent(JSON.stringify(payload));
       try {
-        localStorage.removeItem(CACHE_KEYS.cart);
-      } catch (e) {}
+        // keepalive ajuda quando o navegador está a encerrar a página.
+        await fetchWithRetry(url, { method: 'GET', mode: 'no-cors', keepalive: true });
+        return true;
+      } catch (error) {
+        console.warn('LojaFácil: falha ao sincronizar', type, error);
+        return false;
+      }
+    }
+
+    async function syncPendingRecords() {
+      if (window._syncPendingRunning) return;
+      window._syncPendingRunning = true;
+      try {
+        const list = safeReadJSON(CACHE_KEYS.pendingOrders, []);
+        if (!Array.isArray(list) || !list.length) return;
+        const remaining = [];
+        for (const record of list) {
+          const ok = await postRecord(record.type, record.data);
+          if (!ok) {
+            record.attempts = Number(record.attempts || 0) + 1;
+            remaining.push(record);
+          }
+        }
+        safeWriteJSON(CACHE_KEYS.pendingOrders, remaining.slice(-100));
+      } finally {
+        window._syncPendingRunning = false;
+      }
+    }
+
+    async function syncAbandonedCart() {
+      const list = getAbandonedCarts();
+      if (!list.length) return;
+      const latest = list[list.length - 1];
+      if (!latest || latest.synced) return;
+      const ok = await postRecord('carrinho_abandonado', latest);
+      if (ok) {
+        latest.synced = true;
+        const next = list.slice(-100);
+        next[next.length - 1] = latest;
+        safeWriteJSON(CACHE_KEYS.abandoned, next);
+      } else {
+        queuePendingRecord('carrinho_abandonado', latest);
+      }
     }
 
     // Ferramentas para verificar os dados guardados no navegador.
     window.LojaFacilCache = {
-      carrinho: () => {
-        const data = JSON.parse(localStorage.getItem(CACHE_KEYS.cart) || "[]");
+      carrinho: function() {
+        const data = safeReadJSON(CACHE_KEYS.cart, []);
         console.table(data);
         return data;
       },
-      limpar: () => {
+      abandonados: function() {
+        const data = getAbandonedCarts();
+        console.table(data);
+        return data;
+      },
+      pendentes: function() {
+        const data = safeReadJSON(CACHE_KEYS.pendingOrders, []);
+        console.table(data);
+        return data;
+      },
+      limpar: function() {
         localStorage.removeItem(CACHE_KEYS.config);
         localStorage.removeItem(CACHE_KEYS.products);
         console.log("Cache de produtos/configuração limpo.");
       },
-      limparCarrinho: () => {
+      limparCarrinho: function() {
         clearSavedCart();
         cart = [];
         renderCart();
@@ -2989,7 +3165,10 @@
     // ============================================
     // WHATSAPP SEND
     // ============================================
+    let checkoutSending = false;
+
     function sendWhatsApp() {
+      if (checkoutSending) return;
       const name = document.getElementById("custName").value.trim();
       const phone = document.getElementById("custPhone").value.trim();
       const del = document.querySelector('input[name="delivery"]:checked');
@@ -3000,22 +3179,31 @@
       var bairro = document.getElementById('custBairro') ? document.getElementById('custBairro').value.trim() : '';
       var cidade = document.getElementById('custCidade') ? document.getElementById('custCidade').value.trim() : '';
       const obs = document.getElementById("custObs").value.trim();
-      // Clear previous error highlights
+      const btn = document.querySelector('.btn-whatsapp');
+
       document.querySelectorAll('.field-error').forEach(function(el) { el.classList.remove('field-error'); });
       document.querySelectorAll('.delivery-error').forEach(function(el) { el.classList.remove('delivery-error'); });
 
       var hasError = false;
       var firstError = null;
-      function markError(el) { el.classList.add('field-error'); if (!firstError) firstError = el; hasError = true; }
+      function markError(el) { if (el) el.classList.add('field-error'); if (!firstError) firstError = el; hasError = true; }
 
       if (!name) markError(document.getElementById('custName'));
       if (!phone || phone.replace(/\D/g, '').replace(/^244/, '').length !== 9) markError(document.getElementById('custPhone'));
-      if (!del) { var dg = document.querySelector('.form-group:has(#deliveryOptions)') || document.getElementById('deliveryOptions').closest('.form-group'); if (dg) { dg.classList.add('delivery-error'); if (!firstError) firstError = dg; } hasError = true; }
+      if (!del) {
+        var dg = document.querySelector('.form-group:has(#deliveryOptions)') || document.getElementById('deliveryOptions').closest('.form-group');
+        if (dg) { dg.classList.add('delivery-error'); if (!firstError) firstError = dg; }
+        hasError = true;
+      }
       if (!pay) markError(document.getElementById('paymentMethod'));
 
       if (hasError) {
         showToast("Preencha todos os campos obrigatórios", true);
-        if (firstError) { firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }); firstError.focus && firstError.querySelector && (firstError.querySelector('input,select,textarea') || firstError).focus(); }
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          var focusEl = firstError.querySelector ? (firstError.querySelector('input,select,textarea') || firstError) : firstError;
+          if (focusEl && focusEl.focus) focusEl.focus();
+        }
         return;
       }
 
@@ -3029,10 +3217,21 @@
         return;
       }
 
-      const sub = cart.reduce((s, i) => s + i.preco * i.qty, 0);
+      var waNumber = String(CONFIG.whatsapp || '').replace(/\D/g, '');
+      if (waNumber && !waNumber.startsWith('244')) waNumber = '244' + waNumber;
+      if (!/^244\d{9}$/.test(waNumber)) {
+        showToast('O WhatsApp da loja não está configurado corretamente', true);
+        return;
+      }
+
+      const sub = cart.reduce((s, i) => s + (Number(i.preco) || 0) * (Number(i.qty) || 0), 0);
       let disc = 0;
-      if (currentCoupon) { disc = currentCoupon.tipo === "percentual" ? sub * (currentCoupon.valor / 100) : currentCoupon.valor; if (disc > sub) disc = sub; }
-      const fee = getDeliveryFee(); const total = sub - disc + fee;
+      if (currentCoupon) {
+        disc = currentCoupon.tipo === "percentual" ? sub * (currentCoupon.valor / 100) : currentCoupon.valor;
+        if (disc > sub) disc = sub;
+      }
+      const fee = getDeliveryFee();
+      const total = sub - disc + fee;
 
       let msg = (CONFIG.msgPedido || "Olá! Segue meu pedido:") + "\n━━━━━━━━━━━━━━━\n";
       cart.forEach(function(i) {
@@ -3044,36 +3243,34 @@
       if (disc > 0) msg += `Cupom ${currentCoupon.codigo}: -Kz ${fp(disc)}\n`;
       if (getDeliveryLabel()) msg += `${getDeliveryLabel()}: ${fee > 0 ? 'Kz ' + fp(fee) : 'Grátis'}\n`;
       var hasItemSemPreco = cart.some(function(i) { return i.preco <= 0; });
-      if (hasItemSemPreco) {
-        msg += '*TOTAL: ' + (total > 0 ? 'Kz ' + fp(total) + ' + itens a consultar' : 'A combinar') + '*\n━━━━━━━━━━━━━━━\n';
-      } else {
-        msg += '*TOTAL: Kz ' + fp(total) + '*\n━━━━━━━━━━━━━━━\n';
-      }
+      msg += hasItemSemPreco
+        ? '*TOTAL: ' + (total > 0 ? 'Kz ' + fp(total) + ' + itens a consultar' : 'A combinar') + '*\n━━━━━━━━━━━━━━━\n'
+        : '*TOTAL: Kz ' + fp(total) + '*\n━━━━━━━━━━━━━━━\n';
       msg += `Nome: ${name}\nTelemóvel: ${normalizeAOPhone(phone)}\nPaís: Angola\n`;
       if (del.value !== 'retirada') {
-        msg += 'Endereço:\n';
-        msg += endereco + '\n';
+        msg += 'Endereço:\n' + endereco + '\n';
         if (complemento) msg += complemento + '\n';
         msg += bairro + ' - ' + cidade + ' - ' + provincia + '\n';
       }
       msg += `Entrega: ${getDeliveryLabel()}\nPagamento: ${pay}\n`;
       if (obs) msg += `Obs: ${obs}\n`;
 
-      if (total > 0) { trackEvent('Purchase', { value: total }); }
-      var itensList = cart.map(function(i) { return i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' - Kz ' + fp(i.preco * i.qty); }).join(' | ');
-      var dadosPedido = {
+      const dadosPedido = {
+        idPedido: 'PED_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
         dataHora: new Date().toLocaleString('pt-AO'),
         nome: name,
         telefone: normalizeAOPhone(phone),
         provincia: provincia,
         pais: 'Angola',
-        endereco: typeof endereco !== 'undefined' ? endereco : '',
-        bairro: typeof bairro !== 'undefined' ? bairro : '',
-        cidade: typeof cidade !== 'undefined' ? cidade : '',
-        complemento: typeof complemento !== 'undefined' ? complemento : '',
+        endereco: endereco,
+        bairro: bairro,
+        cidade: cidade,
+        complemento: complemento,
         entrega: getDeliveryLabel(),
         pagamento: pay,
-        itens: itensList,
+        itens: cart.map(function(i) {
+          return i.qty + 'x ' + i.nome + (i.variacao ? ' (' + i.variacao + ')' : '') + ' - Kz ' + fp(i.preco * i.qty);
+        }).join(' | '),
         subtotal: 'Kz ' + fp(sub),
         desconto: disc > 0 ? 'Kz ' + fp(disc) : '',
         taxaEntrega: fee > 0 ? 'Kz ' + fp(fee) : 'Grátis',
@@ -3081,17 +3278,50 @@
         cupom: currentCoupon ? currentCoupon.codigo : '',
         observacoes: obs
       };
-      salvarPedido(dadosPedido);
-      var waNumber = String(CONFIG.whatsapp || '').replace(/\D/g, '');
-      if (waNumber && !waNumber.startsWith('244')) waNumber = '244' + waNumber;
-      var waUrl = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(msg);
-      window.open(waUrl, '_blank');
+
+      // Guarda uma cópia local antes de qualquer operação de rede/navegação.
+      queuePendingRecord('pedido', dadosPedido);
+      checkoutSending = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.pointerEvents = 'none';
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = 'A preparar pedido...';
+      }
+
+      if (total > 0) trackEvent('Purchase', { value: total });
+
+      const waUrl = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(msg);
+      // Abre a janela imediatamente dentro do gesto do utilizador para reduzir bloqueios de popup.
+      var waWindow = null;
+      try { waWindow = window.open(waUrl, '_blank'); } catch (e) {}
+      if (!waWindow) {
+        window.location.href = waUrl;
+        return;
+      }
+
+      // O pedido pode chegar à planilha em paralelo; a fila local cobre falhas de rede.
+      salvarPedido(dadosPedido).then(function() {
+        syncPendingRecords();
+      }).catch(function() {
+        syncPendingRecords();
+      });
+
       closeCheckout();
       cart = [];
       clearSavedCart();
       currentCoupon = null;
       renderCart();
       document.getElementById('orderConfirmed').classList.add('open');
+
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.pointerEvents = '';
+        btn.textContent = btn.dataset.originalText || 'Enviar Pedido pelo WhatsApp';
+      }
+      checkoutSending = false;
     }
 
     // ============================================
@@ -3164,14 +3394,16 @@
       var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       return luminance > 0.55;
     }
-    function salvarPedido(dadosPedido) {
-      if (!LOJAFACIL.salvar_pedidos) return;
-      try {
-        var url = LOJAFACIL.salvar_pedidos + '?data=' + encodeURIComponent(JSON.stringify(dadosPedido));
-        fetch(url, { mode: 'no-cors' });
-      } catch (err) {
-        console.log('Erro ao salvar pedido:', err);
+    async function salvarPedido(dadosPedido) {
+      if (!dadosPedido || typeof dadosPedido !== 'object') return false;
+      const endpoint = getSaveEndpoint();
+      if (!endpoint) {
+        queuePendingRecord('pedido', dadosPedido);
+        return false;
       }
+      const ok = await postRecord('pedido', dadosPedido);
+      if (!ok) queuePendingRecord('pedido', dadosPedido);
+      return ok;
     }
     function closeOrderConfirmed() {
       document.getElementById('orderConfirmed').classList.remove('open');
@@ -3371,6 +3603,18 @@
       if (btn) {
         if (window.scrollY > 400) { btn.classList.add('show'); }
         else { btn.classList.remove('show'); }
+      }
+    });
+
+    window.addEventListener('online', function() {
+      syncPendingRecords();
+      syncAbandonedCart();
+    });
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        syncPendingRecords();
+        syncAbandonedCart();
       }
     });
 
