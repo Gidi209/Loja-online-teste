@@ -7,7 +7,6 @@
   <title>Digital Shopping Luanda — Marketplace de Angola</title>
   <meta name="description" content="Encontre. Compare. Compre. Milhares de produtos de vendedores de Luanda em um só lugar. Compare opções, fale diretamente com o vendedor e combine a entrega. Digital Shopping Luanda — conectando quem compra com quem vende.">
   <link rel="icon" href="https://drive.google.com/uc?export=view&id=1Ol4yRszoFQIvQDACIYOJlZmAg13RoZ8j" type="image/png">
-  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
@@ -269,7 +268,7 @@
 
     .search-bar svg {
       position: absolute;
-      left: 14px;
+      left: 28px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--gray-400);
@@ -1976,7 +1975,7 @@
             d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input type="text" placeholder="Buscar produtos..." id="searchInput" oninput='filterProducts(); document.getElementById("searchClear").classList.toggle("show", this.value.length > 0);'>
-        <button type="button" class="search-clear" id="searchClear" onclick="clearSearch()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--gray-200);border:none;width:20px;height:20px;border-radius:50%;font-size:0.7rem;color:var(--gray-600);cursor:pointer;align-items:center;justify-content:center;padding:0;line-height:1">✕</button>
+        <button type="button" class="search-clear" id="searchClear" onclick="clearSearch()" style="position:absolute;right:24px;top:50%;transform:translateY(-50%);background:var(--gray-200);border:none;width:20px;height:20px;border-radius:50%;font-size:0.7rem;color:var(--gray-600);cursor:pointer;align-items:center;justify-content:center;padding:0;line-height:1">✕</button>
       </div>
       <div class="header-actions">
         <button class="search-toggle" onclick="toggleMobileSearch()">
@@ -3135,11 +3134,11 @@
     function buildDeliveryOptions() {
       const c = document.getElementById("deliveryOptions"); let html = "";
       if (CONFIG.retiradaLocal) html += dopt("retirada", "Retirada no Local", CONFIG.enderecoRetirada || "", "Grátis");
-      if (CONFIG.delivery) html += dopt("delivery", "Entrega ao domicílio", "", CONFIG.taxaDelivery > 0 ? `Kz ${fp(CONFIG.taxaDelivery)}` : "Grátis");
-      if (CONFIG.entregaPadrao) html += dopt("padrao", "Entrega padrão", "", CONFIG.taxaEntregaPadrao > 0 ? `Kz ${fp(CONFIG.taxaEntregaPadrao)}` : "Grátis");
+      if (CONFIG.delivery) html += dopt("delivery", "Entrega ao domicílio", "", CONFIG.taxaDelivery > 0 ? `Kz ${fp(CONFIG.taxaDelivery)}` : "Negociável");
+      if (CONFIG.entregaPadrao) html += dopt("padrao", "Entrega padrão", "", CONFIG.taxaEntregaPadrao > 0 ? `Kz ${fp(CONFIG.taxaEntregaPadrao)}` : "Negociável");
       if (CONFIG.faixasEntrega && CONFIG.faixasEntrega.length > 0) {
         CONFIG.faixasEntrega.forEach((faixa, i) => {
-          html += dopt('faixa_' + i, faixa.nome, '', faixa.taxa > 0 ? 'Kz ' + fp(faixa.taxa) : 'Grátis');
+          html += dopt('faixa_' + i, faixa.nome, '', faixa.taxa > 0 ? 'Kz ' + fp(faixa.taxa) : 'Negociável');
         });
       }
       c.innerHTML = html;
@@ -3163,7 +3162,7 @@
       cart.forEach(i => { html += `<div class="checkout-item"><span>${i.qty}x ${i.nome}${i.variacao ? ' (' + i.variacao + ')' : ''}</span><span>${i.preco > 0 ? 'Kz ' + fp(i.preco * i.qty) : 'A consultar'}</span></div>`; });
       html += `<div class="checkout-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-200)"><span>Subtotal</span><span>Kz ${fp(sub)}</span></div>`;
       if (disc > 0) html += `<div class="checkout-item" style="color:var(--primary)"><span>Cupom ${currentCoupon.codigo}</span><span>- Kz ${fp(disc)}</span></div>`;
-      if (getDeliveryLabel()) html += `<div class="checkout-item"><span>${getDeliveryLabel()}</span><span>${fee > 0 ? 'Kz ' + fp(fee) : 'Grátis'}</span></div>`;
+      if (getDeliveryLabel()) html += `<div class="checkout-item"><span>${getDeliveryLabel()}</span><span>${fee > 0 ? 'Kz ' + fp(fee) : 'Negociável'}</span></div>`;
       var hasItemSemPreco = cart.some(function(i) { return i.preco <= 0; });
       html += `<div class="checkout-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-200);font-weight:700;color:var(--text);font-size:1rem"><span>Total</span><span>${hasItemSemPreco ? (total > 0 ? 'Kz ' + fp(total) + ' + itens a consultar' : 'A combinar') : 'Kz ' + fp(total)}</span></div>`;
       document.getElementById("checkoutSummary").innerHTML = html;
@@ -3248,7 +3247,7 @@
       msg += "━━━━━━━━━━━━━━━\n";
       msg += `Subtotal: Kz ${fp(sub)}\n`;
       if (disc > 0) msg += `Cupom ${currentCoupon.codigo}: -Kz ${fp(disc)}\n`;
-      if (getDeliveryLabel()) msg += `${getDeliveryLabel()}: ${fee > 0 ? 'Kz ' + fp(fee) : 'Grátis'}\n`;
+      if (getDeliveryLabel()) msg += `${getDeliveryLabel()}: ${fee > 0 ? 'Kz ' + fp(fee) : 'Negociável'}\n`;
       var hasItemSemPreco = cart.some(function(i) { return i.preco <= 0; });
       msg += hasItemSemPreco
         ? '*TOTAL: ' + (total > 0 ? 'Kz ' + fp(total) + ' + itens a consultar' : 'A combinar') + '*\n━━━━━━━━━━━━━━━\n'
@@ -3280,7 +3279,7 @@
         }).join(' | '),
         subtotal: 'Kz ' + fp(sub),
         desconto: disc > 0 ? 'Kz ' + fp(disc) : '',
-        taxaEntrega: fee > 0 ? 'Kz ' + fp(fee) : 'Grátis',
+        taxaEntrega: fee > 0 ? 'Kz ' + fp(fee) : 'Negociável',
         total: 'Kz ' + fp(total),
         cupom: currentCoupon ? currentCoupon.codigo : '',
         observacoes: obs
